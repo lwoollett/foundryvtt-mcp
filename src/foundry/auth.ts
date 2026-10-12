@@ -179,6 +179,12 @@ export async function authenticateFoundry(
       headers: {
         'Content-Type': 'application/json',
         Cookie: `session=${session}`,
+        // FoundryVTT v14.369+ rejects every POST lacking a same-origin marker
+        // (Sec-Fetch-Site is browser-only) with 400 "The request could not be
+        // processed.". Sending Origin matching the target host satisfies the
+        // check for non-browser clients.
+        Origin: new URL(baseUrl).origin,
+        Referer: `${new URL(baseUrl).origin}/join`,
       },
       // Accept 200 (success JSON), 302 (redirect to /game on success) and 401
       // (bad password). 401 carries FoundryVTT's own explanation in the body;

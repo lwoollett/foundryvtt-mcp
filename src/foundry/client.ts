@@ -247,6 +247,10 @@ export class FoundryClient {
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'FoundryMCP/0.2.0',
+        // FoundryVTT v14.369+ CSRF check: POSTs without a same-origin marker
+        // (Sec-Fetch-Site, browser-only) are rejected 400 unless Origin
+        // matches the host. Attach it to every request from this client.
+        Origin: new URL(this.config.baseUrl).origin,
       },
       maxRedirects: 3,
       maxContentLength: 50 * 1024 * 1024,
