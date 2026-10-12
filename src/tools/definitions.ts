@@ -756,6 +756,71 @@ export const journalTools = [
  */
 export const journalMutationTools = [
   {
+    name: 'delete_actor',
+    description:
+      'Delete an Actor document by _id. ' + WRITE_GATE,
+    inputSchema: {
+      type: 'object',
+      properties: { actorId: { type: 'string', description: 'Actor _id to delete' } },
+      required: ['actorId'],
+    },
+  },
+  {
+    name: 'delete_folder',
+    description:
+      'Delete a Folder by _id. ' + WRITE_GATE,
+    inputSchema: {
+      type: 'object',
+      properties: { folderId: { type: 'string', description: 'Folder _id to delete' } },
+      required: ['folderId'],
+    },
+  },
+  {
+    name: 'create_actor',
+    description:
+      'Create a new Actor document (e.g. a SWADE NPC) with optional system data, embedded items (skills/edges/abilities/weapons), and folder. Use when: importing statblocks, bulk bestiary creation. ' +
+      WRITE_GATE,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Actor name' },
+        type: {
+          type: 'string',
+          description: 'Actor type (system-specific, e.g. "npc" or "character" for SWADE)',
+        },
+        system: {
+          type: 'object',
+          description: 'Actor system data passed through verbatim (system applies defaults)',
+        },
+        items: {
+          type: 'array',
+          description: 'Embedded items to create on the actor (skills, edges, abilities, weapons, gear)',
+          items: { type: 'object' },
+        },
+        folder: { type: 'string', description: 'Folder _id to file the actor under' },
+      },
+      required: ['name', 'type'],
+    },
+  },
+  {
+    name: 'create_folder',
+    description:
+      'Create a Folder for organizing documents (e.g. "Actor" folders for bestiary biomes). ' +
+      WRITE_GATE,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Folder name' },
+        type: {
+          type: 'string',
+          description: 'Document type the folder holds ("Actor", "JournalEntry", "Item", ...)',
+        },
+        color: { type: 'string', description: 'Optional folder color (hex string)' },
+      },
+      required: ['name', 'type'],
+    },
+  },
+  {
     name: 'create_journal_entry',
     description:
       'Create a new journal entry with one or more text pages, optionally filed under a folder. Defaults to GM-only visibility - pass visibility to let players read it. Use when: recording session notes, lore, or a handout in the world. Do not use when: adding text to an existing entry - this always creates a new one. ' +

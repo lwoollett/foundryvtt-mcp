@@ -1484,6 +1484,55 @@ export class FoundryClient {
     return result[0] as WorldJournal;
   }
 
+  /**
+   * Creates an Actor document (e.g. a SWADE NPC) via modifyDocument.
+   * systemData/items pass through verbatim - the system applies its own
+   * schema defaults on create.
+   */
+  async createActor(
+    name: string,
+    type: string,
+    systemData?: Record<string, unknown>,
+    items?: Array<Record<string, unknown>>,
+    folder?: string,
+  ): Promise<WorldActor> {
+    this.assertWriteable();
+    if (!name || typeof name !== 'string') {
+      throw new Error('name is required and must be a string');
+    }
+    if (!type || typeof type !== 'string') {
+      throw new Error('type is required and must be a string (e.g. "npc", "character")');
+    }
+    const data: Record<string, unknown> = { name, type };
+    if (systemData) {
+      data.system = systemData;
+    }
+    if (items) {
+      data.items = items;
+    }
+    if (folder) {
+      data.folder = folder;
+    }
+    const result = await this.modifyDocument('Actor', 'create', { data: [data] });
+    return result[0] as WorldActor;
+  }
+
+  /**
+   * Creates a Folder (e.g. "Actor" folders for bestiary biomes).
+   */
+  async createFolder(name: string, docType: string, color?: string): Promise<unknown> {
+    this.assertWriteable();
+    if (!name || typeof name !== 'string') {
+      throw new Error('name is required and must be a string');
+    }
+    const data: Record<string, unknown> = { name, type: docType };
+    if (color) {
+      data.color = color;
+    }
+    const result = await this.modifyDocument('Folder', 'create', { data: [data] });
+    return result[0];
+  }
+
   // ==========================================================================
   // Cross-collection search
   // ==========================================================================

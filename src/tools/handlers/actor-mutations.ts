@@ -64,3 +64,101 @@ ${updatedList}`,
     };
   });
 }
+
+/**
+ * Handles actor creation requests (e.g. bulk bestiary import).
+ * WRITE operation — systemData/items pass through verbatim; the system
+ * (e.g. SWADE) applies its own schema defaults on create.
+ */
+export async function handleCreateActor(
+  args: {
+    name: string;
+    type: string;
+    system?: Record<string, unknown>;
+    items?: Array<Record<string, unknown>>;
+    folder?: string;
+  },
+  foundryClient: FoundryClient,
+) {
+  return withToolError('create actor', async () => {
+    const actor = await foundryClient.createActor(
+      args.name,
+      args.type,
+      args.system,
+      args.items,
+      args.folder,
+    );
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `🎭 **Actor Created**
+**Name:** ${actor.name}
+**ID:** ${actor._id}
+**Type:** ${args.type}
+**Items:** ${args.items?.length ?? 0}`,
+        },
+      ],
+    };
+  });
+}
+
+/**
+ * Handles folder creation requests (e.g. biome folders for bestiary actors).
+ * WRITE operation.
+ */
+export async function handleCreateFolder(
+  args: { name: string; type: string; color?: string },
+  foundryClient: FoundryClient,
+) {
+  return withToolError('create folder', async () => {
+    const folder = (await foundryClient.createFolder(
+      args.name,
+      args.type,
+      args.color,
+    )) as { _id?: string; name?: string };
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `📁 **Folder Created**
+**Name:** ${folder?.name ?? args.name}
+**ID:** ${folder?._id ?? 'unknown'}
+**Type:** ${args.type}`,
+        },
+      ],
+    };
+  });
+}
+
+/** Deletes an Actor by _id. WRITE operation. */
+export async function handleDeleteActor(
+  args: { actorId: string },
+  foundryClient: FoundryClient,
+) {
+  return withToolError('delete actor', async () => {
+    await (foundryClient as any).modifyDocument('Actor', 'delete', {
+      ids: [args.actorId],
+    });
+    return {
+      content: [{ type: 'text', text: `🗑️ **Actor Deleted:** ${args.actorId}` }],
+    };
+  });
+}
+
+/** Deletes a Folder by _id. WRITE operation. */
+export async function handleDeleteFolder(
+  args: { folderId: string },
+  foundryClient: FoundryClient,
+) {
+  return withToolError('delete folder', async () => {
+    await (foundryClient as any).modifyDocument('Folder', 'delete', {
+      ids: [args.folderId],
+    });
+    return {
+      content: [{ type: 'text', text: `🗑️ **Folder Deleted:** ${args.folderId}` }],
+    };
+  });
+}

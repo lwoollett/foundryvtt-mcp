@@ -13,7 +13,13 @@ import type {
 import type { DiagnosticSystem } from '../utils/diagnostics.js';
 import { logger } from '../utils/logger.js';
 import type { ToolContext, ToolResult } from './base.js';
-import { handleUpdateActorAttribute } from './handlers/actor-mutations.js';
+import {
+  handleCreateActor,
+  handleCreateFolder,
+  handleDeleteActor,
+  handleDeleteFolder,
+  handleUpdateActorAttribute,
+} from './handlers/actor-mutations.js';
 import { handleGetActorDetails, handleSearchActors } from './handlers/actors.js';
 import { handleGetChatMessages } from './handlers/chat.js';
 import { handleGetCombatState } from './handlers/combat.js';
@@ -254,6 +260,44 @@ export async function routeToolRequest(
 
     // Journal mutation tools (WRITE) — Socket.IO modifyDocument protocol
     // (foundryClient); require FOUNDRY_WRITE_ENABLED=true + a GM user.
+    case 'delete_actor':
+      if (!('actorId' in args) || typeof args.actorId !== 'string') {
+        throw new Error('Missing required parameter: actorId');
+      }
+      return handleDeleteActor(args as { actorId: string }, foundryClient);
+    case 'delete_folder':
+      if (!('folderId' in args) || typeof args.folderId !== 'string') {
+        throw new Error('Missing required parameter: folderId');
+      }
+      return handleDeleteFolder(args as { folderId: string }, foundryClient);
+    case 'create_actor':
+      if (!('name' in args) || typeof args.name !== 'string') {
+        throw new Error('Missing required parameter: name');
+      }
+      if (!('type' in args) || typeof args.type !== 'string') {
+        throw new Error('Missing required parameter: type');
+      }
+      return handleCreateActor(
+        args as {
+          name: string;
+          type: string;
+          system?: Record<string, unknown>;
+          items?: Array<Record<string, unknown>>;
+          folder?: string;
+        },
+        foundryClient,
+      );
+    case 'create_folder':
+      if (!('name' in args) || typeof args.name !== 'string') {
+        throw new Error('Missing required parameter: name');
+      }
+      if (!('type' in args) || typeof args.type !== 'string') {
+        throw new Error('Missing required parameter: type');
+      }
+      return handleCreateFolder(
+        args as { name: string; type: string; color?: string },
+        foundryClient,
+      );
     case 'create_journal_entry':
       if (!('name' in args) || typeof args.name !== 'string') {
         throw new Error('Missing required parameter: name');
