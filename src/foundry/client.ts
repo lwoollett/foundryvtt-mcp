@@ -1518,6 +1518,30 @@ export class FoundryClient {
   }
 
   /**
+   * Creates a Scene with optional grid config and embedded map notes.
+   */
+  async createScene(
+    name: string,
+    img?: string,
+    grid?: Record<string, unknown>,
+    dimensions?: { width?: number; height?: number },
+    notes?: Array<Record<string, unknown>>,
+  ): Promise<unknown> {
+    this.assertWriteable();
+    if (!name || typeof name !== 'string') {
+      throw new Error('name is required and must be a string');
+    }
+    const data: Record<string, unknown> = { name, navName: name, active: false, navigation: true };
+    if (img) data.img = img;
+    if (dimensions?.width) data.width = dimensions.width;
+    if (dimensions?.height) data.height = dimensions.height;
+    if (grid) data.grid = grid;
+    if (notes) data.notes = notes;
+    const result = await this.modifyDocument('Scene', 'create', { data: [data] });
+    return result[0];
+  }
+
+  /**
    * Creates a Folder (e.g. "Actor" folders for bestiary biomes).
    */
   async createFolder(name: string, docType: string, color?: string): Promise<unknown> {

@@ -756,6 +756,40 @@ export const journalTools = [
  */
 export const journalMutationTools = [
   {
+    name: 'create_scene',
+    description:
+      'Create a Scene (map) with optional background image path, grid config (type 2 = odd-r pointy hexes), dimensions, and embedded map notes ({x,y,journalId,entryId,text}). ' +
+      WRITE_GATE,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Scene name' },
+        img: { type: 'string', description: 'Background image path (e.g. worlds/<world>/Data/maps/x.png)' },
+        grid: {
+          type: 'object',
+          description: 'Grid config, e.g. {type:2,size:100,distance:6,units:"mi"}',
+        },
+        width: { type: 'number', description: 'Scene width in pixels' },
+        height: { type: 'number', description: 'Scene height in pixels' },
+        notes: {
+          type: 'array',
+          description: 'Map notes/pins: {x, y, journalId, entryId, text, icon?}',
+          items: { type: 'object' },
+        },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'delete_scene',
+    description: 'Delete a Scene by _id. ' + WRITE_GATE,
+    inputSchema: {
+      type: 'object',
+      properties: { sceneId: { type: 'string', description: 'Scene _id to delete' } },
+      required: ['sceneId'],
+    },
+  },
+  {
     name: 'delete_actor',
     description:
       'Delete an Actor document by _id. ' + WRITE_GATE,

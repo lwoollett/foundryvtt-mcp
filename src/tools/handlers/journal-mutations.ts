@@ -71,6 +71,7 @@ export async function handleCreateJournalEntry(
 **Name:** ${journal.name}
 **ID:** ${journal._id}
 **Pages:** ${journal.pages?.length ?? pages.length}
+**Page IDs:** ${(journal.pages ?? []).map((p) => p._id).join(',')}
 **Visible to:** ${VISIBILITY_SUMMARY[visibility ?? 'gm-only']}`,
         },
       ],

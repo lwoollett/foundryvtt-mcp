@@ -162,3 +162,52 @@ export async function handleDeleteFolder(
     };
   });
 }
+
+
+/** Creates a Scene (map) with optional grid + embedded notes. WRITE. */
+export async function handleCreateScene(
+  args: {
+    name: string;
+    img?: string;
+    grid?: Record<string, unknown>;
+    width?: number;
+    height?: number;
+    notes?: Array<Record<string, unknown>>;
+  },
+  foundryClient: FoundryClient,
+) {
+  return withToolError('create scene', async () => {
+    const dims: { width?: number; height?: number } = {};
+    if (args.width !== undefined) dims.width = args.width;
+    if (args.height !== undefined) dims.height = args.height;
+    const scene = (await foundryClient.createScene(
+      args.name,
+      args.img,
+      args.grid,
+      dims,
+      args.notes,
+    )) as { _id?: string; name?: string };
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `🗺️ **Scene Created**
+**Name:** ${scene?.name ?? args.name}
+**ID:** ${scene?._id ?? 'unknown'}`,
+        },
+      ],
+    };
+  });
+}
+
+
+/** Deletes a Scene by _id. WRITE. */
+export async function handleDeleteScene(
+  args: { sceneId: string },
+  foundryClient: FoundryClient,
+) {
+  return withToolError('delete scene', async () => {
+    await (foundryClient as any).modifyDocument('Scene', 'delete', { ids: [args.sceneId] });
+    return { content: [{ type: 'text', text: `🗺️ **Scene Deleted:** ${args.sceneId}` }] };
+  });
+}

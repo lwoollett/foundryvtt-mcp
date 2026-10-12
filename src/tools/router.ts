@@ -18,6 +18,8 @@ import {
   handleCreateFolder,
   handleDeleteActor,
   handleDeleteFolder,
+  handleCreateScene,
+  handleDeleteScene,
   handleUpdateActorAttribute,
 } from './handlers/actor-mutations.js';
 import { handleGetActorDetails, handleSearchActors } from './handlers/actors.js';
@@ -270,6 +272,26 @@ export async function routeToolRequest(
         throw new Error('Missing required parameter: folderId');
       }
       return handleDeleteFolder(args as { folderId: string }, foundryClient);
+    case 'delete_scene':
+      if (!('sceneId' in args) || typeof args.sceneId !== 'string') {
+        throw new Error('Missing required parameter: sceneId');
+      }
+      return handleDeleteScene(args as { sceneId: string }, foundryClient);
+    case 'create_scene':
+      if (!('name' in args) || typeof args.name !== 'string') {
+        throw new Error('Missing required parameter: name');
+      }
+      return handleCreateScene(
+        args as {
+          name: string;
+          img?: string;
+          grid?: Record<string, unknown>;
+          width?: number;
+          height?: number;
+          notes?: Array<Record<string, unknown>>;
+        },
+        foundryClient,
+      );
     case 'create_actor':
       if (!('name' in args) || typeof args.name !== 'string') {
         throw new Error('Missing required parameter: name');

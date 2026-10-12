@@ -1,7 +1,9 @@
 /**
- * Bulk import: reads a payload JSON {folders:[{name,type,color}], actors:[{...}]}
- * and creates them via the running MCP server over stdio.
- * Usage: bun scripts/bulk-import.ts /tmp/bestiary-payload.json [--only Name1,Name2] [--dry]
+ * Bulk import: {folders:[{name,type,color}], journals:[{name,folder,pages}],
+ *               scenes:[{name,img,grid,width,height,notes:[{journal, ...}]}],
+ *               actors:[{name,type,system,items,biome}]}
+ * Folders -> journals -> scenes (pins resolved by journal name) -> actors.
+ * Usage: bun scripts/bulk-import.ts <payload.json> [--only=A,B] [--dry]
  */
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -40,46 +42,73 @@ function rpc(method: string, params?: any): Promise<any> {
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bulk-import', version: '1.0' } });
+await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bulk-import', version: '1.1' } });
 child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
-await sleep(6000); // auth + world load
+await sleep(6000);
 
 async function call(name: string, args: any): Promise<string> {
   const res = await rpc('tools/call', { name, arguments: args });
   return res?.result?.content?.map((c: any) => c.text).join('\n') ?? JSON.stringify(res);
 }
+const idsIn = (t: string) => [...t.matchAll(/IDs?:\*?\*?\s*([a-zA-Z0-9]{16})/g)].map((m) => m[1]);
 
+if (dry) { console.log(`dry run: folders=${payload.folders?.length ?? 0} journals=${payload.journals?.length ?? 0} scenes=${payload.scenes?.length ?? 0} actors=${payload.actors?.length ?? 0}`); child.kill(); process.exit(0); }
+
+// 1. folders
 const folderIds = new Map<string, string>();
-for (const f of payload.folders) {
+for (const f of payload.folders ?? []) {
   const text = await call('create_folder', { name: f.name, type: f.type ?? 'Actor', color: f.color });
-  const m = text.match(/ID:\*?\*?\s*([a-zA-Z0-9]{16})/);
-  if (m) folderIds.set(f.name, m[1]);
-  console.log(`folder "${f.name}" -> ${m ? m[1] : 'FAILED'}`);
-  if (!m) console.log(text);
+  const id = idsIn(text)[0];
+  if (id) folderIds.set(f.name, id); else console.log(`folder FAILED: ${f.name}\n${text}`);
+  await sleep(250);
+}
+console.log(`folders: ${folderIds.size}/${payload.folders?.length ?? 0}`);
+
+// 2. journals
+const journalRefs = new Map<string, { journalId: string; pageId: string }>();
+const journals = only ? (payload.journals ?? []).filter((j: any) => only.includes(j.name)) : payload.journals ?? [];
+for (const j of journals) {
+  const args: any = { name: j.name, pages: j.pages };
+  if (j.folder && folderIds.has(j.folder)) args.folder = folderIds.get(j.folder);
+  if (j.visibility) args.visibility = j.visibility;
+  const text = await call('create_journal_entry', args);
+  const ids = idsIn(text);
+  if (ids.length >= 2) journalRefs.set(j.name, { journalId: ids[0], pageId: ids[1] });
+  else console.log(`journal FAILED: ${j.name}\n${text}`);
+  await sleep(200);
+}
+console.log(`journals: ${journalRefs.size}/${journals.length}`);
+
+// 3. scenes (notes resolved from journalRefs)
+for (const sc of payload.scenes ?? []) {
+  const notes = (sc.notes ?? []).flatMap((n: any) => {
+    if (n.journalId && (n.entryId || n.pageId)) {
+      return [{ x: n.x, y: n.y, journalId: n.journalId, entryId: n.entryId ?? n.pageId, text: n.text ?? '', icon: n.icon ?? 'icons/svg/book.svg' }];
+    }
+    const ref = journalRefs.get(n.journal);
+    if (!ref) { console.log(`  note unresolved: ${n.journal}`); return []; }
+    return [{ x: n.x, y: n.y, journalId: ref.journalId, entryId: ref.pageId, text: n.text ?? n.journal, icon: n.icon ?? 'icons/svg/book.svg' }];
+  });
+  const args: any = { name: sc.name, notes };
+  for (const k of ['img', 'width', 'height']) if (sc[k] !== undefined) args[k] = sc[k];
+  if (sc.grid) args.grid = sc.grid;
+  const text = await call('create_scene', args);
+  console.log(`scene "${sc.name}": ${idsIn(text)[0] ?? 'FAILED'} (${notes.length} notes)`);
   await sleep(300);
 }
 
-const actors = only ? payload.actors.filter((a: any) => only.includes(a.name)) : payload.actors;
-if (dry) {
-  console.log(`dry run: would create ${actors.length} actors`);
-  child.kill(); process.exit(0);
-}
-
+// 4. actors
 let ok = 0, fail = 0;
+const actors = only ? (payload.actors ?? []).filter((a: any) => only.includes(a.name)) : payload.actors ?? [];
 for (const a of actors) {
   const folderId = folderIds.get(`Bestiary — ${a.biome}`);
   const args: any = { name: a.name, type: a.type, system: a.system, items: a.items };
   if (folderId) args.folder = folderId;
-  try {
-    const text = await call('create_actor', args);
-    if (text.includes('FAILED') || text.toLowerCase().includes('error')) {
-      fail++; console.log(`✗ ${a.name}: ${text.slice(0, 200)}`);
-    } else { ok++; if (ok % 25 === 0) console.log(`… ${ok}/${actors.length}`); }
-  } catch (e: any) {
-    fail++; console.log(`✗ ${a.name}: ${e.message}`);
-  }
+  const text = await call('create_actor', args);
+  if (text.includes('FAILED') || /error/i.test(text)) { fail++; console.log(`✗ ${a.name}`); }
+  else if (++ok % 25 === 0) console.log(`… ${ok}/${actors.length}`);
   await sleep(250);
 }
-console.log(`done: ${ok} created, ${fail} failed`);
+if (actors.length) console.log(`actors: ${ok} created, ${fail} failed`);
 child.kill();
-process.exit(fail > 0 ? 1 : 0);
+process.exit(0);
