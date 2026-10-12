@@ -1532,6 +1532,14 @@ export class FoundryClient {
       throw new Error('name is required and must be a string');
     }
     const data: Record<string, unknown> = { name, navName: name, active: false, navigation: true };
+    // v14: a scene must have at least one Level and an initialLevel id, or the
+    // client canvas crashes in _determineInitialLevel (undefined.id).
+    const levelId = Array.from({ length: 16 }, () => {
+      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      return chars[Math.floor(Math.random() * chars.length)];
+    }).join('');
+    data.levels = [{ _id: levelId, name: 'Ground', elevation: { bottom: 0, top: 1000 } }];
+    data.initialLevel = levelId;
     if (img) data.img = img;
     if (dimensions?.width) data.width = dimensions.width;
     if (dimensions?.height) data.height = dimensions.height;
